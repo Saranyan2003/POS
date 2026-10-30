@@ -12,33 +12,48 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const categoryId = searchParams.get("categoryId") || "";
     const barcode = searchParams.get("barcode") || "";
+    const rawPage = searchParams.get("page");
+    const rawLimit = searchParams.get("limit");
 
-    const products = await prisma.product.findMany({
-      where: {
-        businessId,
-        isActive: true,
-        ...(barcode
-          ? { barcode: { equals: barcode } }
-          : search
-          ? {
-              OR: [
-                { name: { contains: search } },
-                { barcode: { contains: search } },
-                { sku: { contains: search } },
-              ],
-            }
-          : {}),
-        ...(categoryId ? { categoryId } : {}),
-      },
-      include: {
-        category: true,
-        supplier: true,
-        inventory: {
-          where: { branchId: branchId || undefined },
+    const isPaginated = rawPage !== null;
+    const page = Math.max(1, parseInt(rawPage || "1", 10) || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(rawLimit || "12", 10) || 12));
+    const skip = isPaginated ? (page - 1) * limit : undefined;
+    const take = isPaginated ? limit : undefined;
+
+    const whereClause: any = {
+      businessId,
+      isActive: true,
+      ...(barcode
+        ? { barcode: { equals: barcode } }
+        : search
+        ? {
+            OR: [
+              { name: { contains: search } },
+              { barcode: { contains: search } },
+              { sku: { contains: search } },
+            ],
+          }
+        : {}),
+      ...(categoryId ? { categoryId } : {}),
+    };
+
+    const [totalProducts, products] = await Promise.all([
+      isPaginated ? prisma.product.count({ where: whereClause }) : Promise.resolve(0),
+      prisma.product.findMany({
+        where: whereClause,
+        include: {
+          category: true,
+          supplier: true,
+          inventory: {
+            where: { branchId: branchId || undefined },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+        skip,
+        take,
+      }),
+    ]);
 
     const enrichedProducts = products.map((p) => {
       const unitLower = (p.unit || "pcs").toLowerCase().trim();
@@ -55,6 +70,24 @@ export async function GET(req: NextRequest) {
         isOutOfStock: isService ? false : stock <= 0,
       };
     });
+
+    if (isPaginated) {
+      const totalPages = Math.max(1, Math.ceil(totalProducts / limit));
+      return NextResponse.json({
+        success: true,
+        products: enrichedProducts,
+        pagination: {
+          page,
+          limit,
+          totalProducts,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+          nextPage: page < totalPages ? page + 1 : null,
+          prevPage: page > 1 ? page - 1 : null,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, products: enrichedProducts });
   } catch (error: any) {

@@ -1,7 +1,7 @@
 // This is your Prisma schema file for the Multi-Tenant POS SaaS platform.
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 

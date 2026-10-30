@@ -25,6 +25,7 @@ import {
   Menu,
   X,
   Zap,
+  Globe,
 } from "lucide-react";
 import { safeFetchJson } from "@/lib/utils";
 import { Ticket2GrowLogo } from "@/components/brand/Ticket2GrowLogo";
@@ -120,6 +121,7 @@ export default function TenantAppLayout({ children }: { children: React.ReactNod
         { label: "Products & Menu", href: "/products", icon: Package, show: !isCashier },
         { label: "Stock Inventory", href: "/inventory", icon: Boxes, show: !isCashier },
         { label: "Supplier Purchases", href: "/purchases", icon: Truck, show: !isCashier },
+        { label: "Online Catalog & API", href: "/online-catalog", icon: Globe, show: !isCashier, badge: "API" },
       ],
     },
     {
